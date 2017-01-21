@@ -98,10 +98,8 @@ vector<Change> replacePair(const vector<string> replace_words,
 
     vector<string> word = vocab[j].first;
     freq = vocab[j].second;
-    // cout << j << " : " << boost::join(word, " ") << " " << freq << endl;
     string new_word = boost::join(word, " ");
     boost::replace_all(new_word, first + " " + second, pair_str);
-    // cout << new_word << endl;
     vector<string> vector_new_word;
     boost::split(
         vector_new_word, new_word, boost::is_space(), boost::algorithm::token_compress_on);
@@ -113,7 +111,6 @@ vector<Change> replacePair(const vector<string> replace_words,
 }
 
 int findIndex(vector<string> word, string search_word, unsigned start_index) {
-  // cout << start_index << " " << word.size() << endl;
   auto iter = find(word.begin() + start_index, word.end(), search_word);
   size_t index = distance(word.begin(), iter);
   return index;
@@ -135,12 +132,9 @@ void updatePairStatistics(const vector<string> replace_words,
     vector<string> old_word = changes[i].old_word;
     int freq = changes[i].freq;
 
-    // cout << j << " " << boost::join(new_word, " ") << " " << boost::join(old_word, " ") << " " << freq << endl;
-
     unsigned k = 0;
     while(true) {
       k = findIndex(old_word, first, k);
-      // cout << k << endl;
       if (k == old_word.size()) {
         break;
       }
@@ -167,7 +161,6 @@ void updatePairStatistics(const vector<string> replace_words,
     k = 0;
     while(true) {
       k = findIndex(new_word, new_pair, k);
-      // cout << k << endl;
       if (k == new_word.size()) {
         break;
       }
@@ -231,12 +224,6 @@ vector<string> encode(string orig, map<pair<string, string>, unsigned> bpe_codes
   vector<pair<string, string>> pairs = getPairs(word);
 
   while (true) {
-    // cout << "new_word: " << boost::join(word, " ") << endl;
-    // cout << "pairs!!!" << endl;
-    // for (pair<string, string> & p : pairs) {
-    //   cout << p.first << " " << p.second << endl;
-    // }
-    // cout << "pairs!!!end" << endl;
     unsigned min_bigram = UINT_MAX;
     unsigned argmin_bigram = 0;
     for (unsigned i = 0; i < pairs.size(); i++) {
@@ -249,16 +236,12 @@ vector<string> encode(string orig, map<pair<string, string>, unsigned> bpe_codes
     if (min_bigram == UINT_MAX) {
       break;
     }
-    // cout << "argmin: " << argmin_bigram << endl;
     string first = pairs[argmin_bigram].first;
     string second = pairs[argmin_bigram].second;
-    // cout << "first: " << first << ", second: " << second << endl;
     vector<string> new_word;
     unsigned i = 0;
     while (i < word.size()) {
-      // cout << boost::join(word, " ") << endl;
       unsigned j = findIndex(word, first, i);
-      // cout << "j: " << j << endl;
       if (j == word.size()) {
         copy(word.begin() + i, word.end(), back_inserter(new_word));
         break;
@@ -281,13 +264,6 @@ vector<string> encode(string orig, map<pair<string, string>, unsigned> bpe_codes
       pairs = getPairs(word);
     }
   }
-
-  // // don't print end-of-word symbols
-  // if (word[word.size() - 1] == "</w>") {
-  //   word.erase(word.begin() + word.size() - 1);
-  // } else if (boost::ends_with(word[word.size() - 1], "</w>")) {
-  //   boost::replace_all(word[word.size() - 1], "", "</w>");
-  // }
 
   bpe_cache[orig] = word;
   return word;
@@ -365,23 +341,11 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
     vector_vocab.emplace_back(pair<vector<string>, int>(elm.first, elm.second));
   }
 
-  // for (unsigned i = 0; i < vector_vocab.size(); i++) {
-  //   string key = boost::join(vector_vocab[i].first, " ");
-  //   int value = vector_vocab[i].second;
-  //   cout << key << " ||| " << value << endl;
-  // }
-
   map<vector<string>, int> stats;
   map<vector<string>, map<unsigned, int>> indices;
   getPairStatistics(vector_vocab, stats, indices);
   map<vector<string>, int> big_stats = stats;
   int threshold = stats[findMax(stats)] / 10;
-  // cout << "threshold: " << threshold << endl;
-
-  // for (auto elm : stats) {
-  //   string key = boost::join(elm.first, " ");
-  //   cout << key << " ||| " << elm.second << endl;
-  // }
 
   unsigned letter_size = stoi_.size();
   for (unsigned i = 0; i < size - letter_size; i++) {
@@ -397,7 +361,6 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
       pruneStats(stats, big_stats, threshold);
     }
 
-    // cout << "Going to replace: " << boost::join(most_frequent_index, " ") << endl;
     // Store entries
     bpe_codes_[pair<string, string>(most_frequent_index[0], most_frequent_index[1])] = i;
     itos_.emplace_back(boost::join(most_frequent_index, ""));
@@ -414,71 +377,6 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
     }
   }
   // end making BPE codes
-
-  // // Counts word frequencies.
-  // map<string, unsigned> freq;
-  // unsigned num_lines = 0;
-  // unsigned num_words = 0;
-  // while (Corpus::readLine(&ifs, &line)) {
-  //   ++num_lines;
-  //   vector<string> words;
-  //   boost::split(
-  //       words, line, boost::is_space(), boost::algorithm::token_compress_on);
-  //   for (const string & word : words) {
-  //     vector<string> new_words = encode(word, bpe_codes_, bpe_cache_);
-  //     num_words += new_words.size();
-  //     for (const string & new_word : new_words) {
-  //       ++freq[new_word];
-  //     }
-  //   }
-  // }
-
-  // // Selects most frequent words.
-  // vector<pair<unsigned, string>> entries;
-  // for (const auto & entry : freq) {
-  //   entries.emplace_back(make_pair(entry.second, entry.first));
-  // }
-  // Array::sort(&entries, greater<pair<unsigned, string>>());
-
-  // // Store entries.
-  // stoi_["<unk>"] = 0;
-  // stoi_["<s>"] = 1;
-  // stoi_["</s>"] = 2;
-  // itos_.emplace_back("<unk>");
-  // itos_.emplace_back("<s>");
-  // itos_.emplace_back("</s>");
-  // freq_.emplace_back(num_words);
-  // freq_.emplace_back(num_lines);
-  // freq_.emplace_back(num_lines);
-  // for (unsigned i = 3; i < size && i - 3 < entries.size(); ++i) {
-  //   const auto & entry = entries[i - 3];
-  //   stoi_[entry.second] = i;
-  //   itos_.emplace_back(entry.second);
-  //   freq_.emplace_back(entry.first);
-  //   freq_[0] -= entry.first;
-  // }
-
-  // // Some words in BPE may not contained in vocabulary,
-  // // so we remove these BPE codes.
-  // map<pair<string, string>, unsigned>::iterator it = bpe_codes_.begin();
-  // while (it != bpe_codes_.end()) {
-  //   const string word = it->first.first + it->first.second;
-  //   // cout << word << endl;;
-  //   if (getID(word) == 0) {
-  //     bpe_codes_.erase(it++);
-  //     // cout << "erased" << endl;
-  //   } else ++it;
-  // }
-  // bpe_cache_.clear();
-  // freq_[0] = 0;
-
-  // itos_.emplace_back(boost::join(most_frequent_index, ""));
-  // stoi_[boost::join(most_frequent_index, "")] = i;
-  // freq_.emplace_back(stats[most_frequent_index]);
-
-  // for (auto elm : stoi_) {
-  //   cout << elm.first << " ||| " << elm.second << endl;
-  // }
 }
 
 unsigned BPEVocabulary::getID(const string & word) const {
@@ -498,11 +396,6 @@ unsigned BPEVocabulary::getFrequency(const unsigned id) const {
 }
 
 vector<unsigned> BPEVocabulary::convertToIDs(const string & sentence) const {
-  //for (auto elm : bpe_codes_) {
-  //  pair<string, string> p = elm.first;
-  //  cout << p.first << " " << p.second << endl;
-  //}
-
   vector<string> words;
   boost::split(
       words, sentence, boost::is_space(), boost::algorithm::token_compress_on);
