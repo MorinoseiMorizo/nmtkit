@@ -16,6 +16,7 @@ LDADD = \
 check_PROGRAMS = \
   array_test \
   batch_converter_test \
+  bpe_vocabulary_test \
   character_vocabulary_test \
   corpus_test \
   test_corpus_test \
@@ -29,6 +30,7 @@ check_PROGRAMS = \
 TESTS = \
   array_test \
   batch_converter_test \
+  bpe_vocabulary_test \
   character_vocabulary_test \
   corpus_test \
   test_corpus_test \
@@ -41,6 +43,7 @@ TESTS = \
 
 array_test_SOURCES = array_test.cc
 batch_converter_test_SOURCES = batch_converter_test.cc
+bpe_vocabulary_test_SOURCES = bpe_vocabulary_test.cc
 character_vocabulary_test_SOURCES = character_vocabulary_test.cc
 corpus_test_SOURCES = corpus_test.cc
 test_corpus_test_SOURCES = test_corpus_test.cc

@@ -23,6 +23,7 @@
 #include <mteval/EvaluatorFactory.h>
 #include <mteval/Dictionary.h>
 #include <nmtkit/batch_converter.h>
+#include <nmtkit/bpe_vocabulary.h>
 #include <nmtkit/character_vocabulary.h>
 #include <nmtkit/encoder_decoder.h>
 #include <nmtkit/exception.h>
@@ -190,6 +191,8 @@ nmtkit::Vocabulary * createVocabulary(
     return new nmtkit::CharacterVocabulary(corpus_filepath, vocab_size);
   } else if (vocab_type == "word") {
     return new nmtkit::WordVocabulary(corpus_filepath, vocab_size);
+  } else if (vocab_type == "bpe") {
+    return new nmtkit::BPEVocabulary(corpus_filepath, vocab_size);
   }
   NMTKIT_FATAL("Invalid vocabulary type: " + vocab_type);
 }
