@@ -51,6 +51,12 @@ vector<string> convertToLetters(const string & str) {
   return letters;
 }
 
+// Calculate character bigram frequency.
+//
+// Arguments:
+//   vocab: vector bigram frequency.
+//   stats: sum of bigram frequency.
+//   indices: index of stats (key=bigram)
 void getPairStatistics(vector<pair<vector<string>, int>> vocab,
     map<vector<string>, int> & stats,
     map<vector<string>, map<unsigned, int>> & indices) {
@@ -69,6 +75,13 @@ void getPairStatistics(vector<pair<vector<string>, int>> vocab,
   }
 }
 
+// Find max frequency in stats.
+//
+// Arguments:
+//   stats: sum of bigram frequency
+//
+// Returns:
+//   most frequent bigram
 vector<string> findMax(const map<vector<string>, int> stats) {
   int current_max = -1e5;
   vector<string> current_argmax;
@@ -81,6 +94,15 @@ vector<string> findMax(const map<vector<string>, int> stats) {
   return current_argmax;
 }
 
+// Find replaceable word pairs.
+//
+// Arguments:
+//   replace_words: words that are going to concatenate
+//   vocab: vector vocabulary
+//   indices: stats indices of repalce_words
+//
+// Returns:
+//   vector of replaceable pairs
 vector<Change> replacePair(const vector<string> replace_words,
     vector<pair<vector<string>, int>> & vocab,
     const map<unsigned, int> indices) {
@@ -110,12 +132,28 @@ vector<Change> replacePair(const vector<string> replace_words,
   return changes;
 }
 
+// Find index of the specific word from the vector
+//
+// Arguments:
+//   word: vector of words
+//   search_word: search query word
+//   start_index: start finding from this index
+//
+// Returns:
+//   index of the specific word
 int findIndex(vector<string> word, string search_word, unsigned start_index) {
   auto iter = find(word.begin() + start_index, word.end(), search_word);
   size_t index = distance(word.begin(), iter);
   return index;
 }
 
+// Update stats based on changes
+//
+// Arguments:
+//   replace_words: words that are going to concatenate
+//   changes: return value of replacePair()
+//   stats: sum of bigram frequency.
+//   indices: index of stats (key=bigram)
 void updatePairStatistics(const vector<string> replace_words,
     const vector<Change> changes, 
     map<vector<string>, int> & stats,
@@ -179,6 +217,12 @@ void updatePairStatistics(const vector<string> replace_words,
   }
 }
 
+// Prune low frequency words from stats
+//
+// Arguments:
+//   stats: sum of bigram frequency.
+//   big_stats: sum of bigram frequency (not pruned).
+//   threshold: words that frequency is less than this threshold will be pruned
 void pruneStats(
     map<vector<string>, int> & stats,
     map<vector<string>, int> & big_stats,
@@ -202,6 +246,13 @@ void pruneStats(
   }
 }
 
+// Make character bigram from the word.
+//
+// Arguments:
+//   word: word vector that is splitted to character level.
+//
+// Returns:
+//   pairs of character bigram
 vector<pair<string, string>> getPairs(vector<string> word) {
   vector<pair<string, string>> pairs;
   string prev_char = word[0];
@@ -212,11 +263,20 @@ vector<pair<string, string>> getPairs(vector<string> word) {
   return pairs;
 }
 
+// Encode a word to BPE converted words.
+//
+// Arguments:
+//   orig: original word
+//   bpe_codes: bpe_codes made by this class
+//   bpe_cache: BPE converted words
+// Returns:
+//   BPE words
 vector<string> encode(string orig, map<pair<string, string>, unsigned> bpe_codes,
-    map<string, vector<string>> bpe_cache) {
+    map<string, vector<string>> * bpe_cache) {
   // if exists in bpe_cache
-  if (bpe_cache.find(orig) != bpe_cache.end()) {
-    return bpe_cache[orig];
+  const auto &entry = bpe_cache->find(orig);
+  if (entry != bpe_cache->end()) {
+    return entry->second;
   }
 
   vector<string> word = convertToLetters(orig);
@@ -265,7 +325,7 @@ vector<string> encode(string orig, map<pair<string, string>, unsigned> bpe_codes
     }
   }
 
-  bpe_cache[orig] = word;
+  (*bpe_cache)[orig] = word;
   return word;
 }
 
@@ -287,6 +347,7 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
   unsigned num_letters = 0;
   while (Corpus::readLine(&ifs, &line)) {
     ++num_lines;
+    line += " ";  // to add </w> at the end of sentence
     vector<string> letters = ::convertToLetters(line);
     num_letters += letters.size();
     for (string & letter : letters) {
@@ -347,8 +408,8 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
   map<vector<string>, int> big_stats = stats;
   int threshold = stats[findMax(stats)] / 10;
 
-  unsigned letter_size = stoi_.size();
-  for (unsigned i = 0; i < size - letter_size; i++) {
+  unsigned num_letter_vocab = stoi_.size();
+  for (unsigned i = 0; i < size - num_letter_vocab; i++) {
     vector<string> most_frequent_index;
     if (!stats.empty()) {
       most_frequent_index = findMax(stats);
@@ -364,8 +425,15 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
     // Store entries
     bpe_codes_[pair<string, string>(most_frequent_index[0], most_frequent_index[1])] = i;
     itos_.emplace_back(boost::join(most_frequent_index, ""));
-    stoi_[boost::join(most_frequent_index, "")] = i + letter_size;
+    stoi_[boost::join(most_frequent_index, "")] = i + num_letter_vocab;
     freq_.emplace_back(stats[most_frequent_index]);
+    
+    // update vocabulary frequency
+    for (const string & word : most_frequent_index) {
+      if (stoi_.count(word) != 0) {
+        freq_[stoi_[word]] -= stats[most_frequent_index];
+      }
+    }
 
     vector<Change> changes = 
       replacePair(most_frequent_index, vector_vocab, indices[most_frequent_index]);
@@ -401,7 +469,7 @@ vector<unsigned> BPEVocabulary::convertToIDs(const string & sentence) const {
       words, sentence, boost::is_space(), boost::algorithm::token_compress_on);
   vector<unsigned> ids;
   for (const string & word : words) {
-    vector<string> new_words = encode(word, bpe_codes_, bpe_cache_);
+    vector<string> new_words = encode(word, bpe_codes_, &bpe_cache_);
     for (const string & new_word : new_words) {
       ids.emplace_back(getID(new_word));
     }
@@ -415,7 +483,7 @@ vector<string> BPEVocabulary::convertToTokens(const string & sentence) const {
       words, sentence, boost::is_space(), boost::algorithm::token_compress_on);
   vector<string> tokens;
   for (const string & word : words) {
-    vector<string> new_words = encode(word, bpe_codes_, bpe_cache_);
+    vector<string> new_words = encode(word, bpe_codes_, &bpe_cache_);
     for (const string & new_word : new_words) {
       tokens.emplace_back(getWord(getID(new_word)));
     }

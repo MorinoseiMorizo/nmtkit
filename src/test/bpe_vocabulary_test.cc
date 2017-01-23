@@ -6,8 +6,10 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <nmtkit/serialization_utils.h>
+#include <nmtkit/corpus.h>
 #include <nmtkit/bpe_vocabulary.h>
+#include <nmtkit/exception.h>
+#include <nmtkit/serialization_utils.h>
 
 using namespace std;
 
@@ -38,7 +40,7 @@ BOOST_AUTO_TEST_CASE(CheckLoadFromVocabularyFile_En) {
   BOOST_CHECK_EQUAL(0, vocab.getFrequency(0));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(1));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(2));
-  BOOST_CHECK_EQUAL(3371, vocab.getFrequency(3));
+  BOOST_CHECK_EQUAL(140, vocab.getFrequency(3));
 }
 
 BOOST_AUTO_TEST_CASE(CheckLoadFromVocabularyFile_Ja) {
@@ -55,7 +57,7 @@ BOOST_AUTO_TEST_CASE(CheckLoadFromVocabularyFile_Ja) {
   BOOST_CHECK_EQUAL(0, vocab.getFrequency(0));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(1));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(2));
-  BOOST_CHECK_EQUAL(5126, vocab.getFrequency(3));
+  BOOST_CHECK_EQUAL(371, vocab.getFrequency(3));
 }
 
 BOOST_AUTO_TEST_CASE(CheckLoadFromCorpus_En) {
@@ -71,7 +73,7 @@ BOOST_AUTO_TEST_CASE(CheckLoadFromCorpus_En) {
   BOOST_CHECK_EQUAL(0, vocab.getFrequency(0));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(1));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(2));
-  BOOST_CHECK_EQUAL(3371, vocab.getFrequency(3));
+  BOOST_CHECK_EQUAL(140, vocab.getFrequency(3));
 }
 
 BOOST_AUTO_TEST_CASE(CheckLoadFromCorpus_Ja) {
@@ -87,7 +89,7 @@ BOOST_AUTO_TEST_CASE(CheckLoadFromCorpus_Ja) {
   BOOST_CHECK_EQUAL(0, vocab.getFrequency(0));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(1));
   BOOST_CHECK_EQUAL(500, vocab.getFrequency(2));
-  BOOST_CHECK_EQUAL(5126, vocab.getFrequency(3));
+  BOOST_CHECK_EQUAL(371, vocab.getFrequency(3));
 }
 
 BOOST_AUTO_TEST_CASE(CheckConvertingToIDs) {
@@ -198,6 +200,29 @@ BOOST_AUTO_TEST_CASE(CheckConvertingToTokenizedSentence) {
         expected[i].begin(), expected[i].end(),
         observed.begin(), observed.end());
   }
+}
+
+BOOST_AUTO_TEST_CASE(CheckFrequencyCalculation_En) {
+  nmtkit::BPEVocabulary vocab;
+  ::loadArchive("data/small.en.bpe.vocab", &vocab);
+
+  unsigned freq_sum = 0;
+  for (unsigned i = 3; i < vocab.size(); i++) {
+    freq_sum += vocab.getFrequency(i);
+  }
+
+  ifstream ifs("data/small.en.tok");  
+  NMTKIT_CHECK(
+      ifs.is_open(), "Could not open file to read: data/small.en.tok");
+  string input_line;
+
+  unsigned num_words_sum = 0;
+  while (nmtkit::Corpus::readLine(&ifs, &input_line)) {
+    vector<unsigned> input_ids = vocab.convertToIDs(input_line);
+    num_words_sum += input_ids.size();
+  }
+
+  BOOST_CHECK_EQUAL(freq_sum, num_words_sum);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
