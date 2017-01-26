@@ -34,5 +34,6 @@ nobase_include_HEADERS = \
   nmtkit/sorted_random_sampler.h \
   nmtkit/test_corpus.h \
   nmtkit/test_sampler.h \
+  nmtkit/unicode.h \
   nmtkit/vocabulary.h \
   nmtkit/word_vocabulary.h

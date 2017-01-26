@@ -37,6 +37,7 @@ libnmtkit_la_SOURCES = \
   sorted_random_sampler.cc \
   test_corpus.cc \
   test_sampler.cc \
+  unicode.cc \
   vocabulary.cc \
   word_vocabulary.cc
 
