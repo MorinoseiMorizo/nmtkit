@@ -92,7 +92,7 @@ vector<unsigned> CharacterVocabulary::convertToIDs(
 vector<string> CharacterVocabulary::convertToTokens(
     const string & sentence) const {
   vector<string> tokens;
-  for (const string & letter : ::convertToLetters(sentence)) {
+  for (const string & letter : UTF8::getLetters(sentence)) {
     tokens.emplace_back(getWord(getID(letter)));
   }
   return tokens;

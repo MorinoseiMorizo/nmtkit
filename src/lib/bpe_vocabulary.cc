@@ -456,7 +456,7 @@ vector<string> BPEVocabulary::convertToTokens(const string & sentence) const {
       words, sentence, boost::is_space(), boost::algorithm::token_compress_on);
   vector<string> tokens;
   for (const string & word : words) {
-    vector<string> new_words = encode(word, bpe_codes_, &bpe_cache_);
+    vector<string> new_words = encode(&word, &bpe_codes_, &bpe_cache_);
     for (const string & new_word : new_words) {
       tokens.emplace_back(getWord(getID(new_word)));
     }

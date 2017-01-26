@@ -120,9 +120,11 @@ void Corpus::loadParallelSentences(
 
   result->clear();
   vector<unsigned> src_ids, trg_ids;
+  unsigned i = 0;
   while (
       readTokens(src_vocab, &src_ifs, &src_ids) and
       readTokens(trg_vocab, &trg_ifs, &trg_ids)) {
+    cout << "Line: " << i++ << endl;
     if (::checkSample(src_ids, trg_ids, max_length, max_length_ratio)) {
       result->emplace_back(Sample {std::move(src_ids), std::move(trg_ids)});
     }
