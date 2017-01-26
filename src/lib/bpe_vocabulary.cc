@@ -314,6 +314,7 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
       "Could not open corpus file to load: " + corpus_filename);
 
   // Counts word frequencies.
+  cout << "Start making character vocabulary." << endl;
   map<string, unsigned> char_freq;
   string line;
   unsigned num_lines = 0;
@@ -357,8 +358,10 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
     freq_.emplace_back(entry.first);
     freq_[0] -= entry.first;
   }
+  cout << "End making character vocabulary." << endl;
 
   // begin making BPE codes
+  cout << "Start making BPE codes." << endl;
   map<vector<string>, int> vocab;
   while (Corpus::readLine(&ifs, &line)) {
     vector<string> words;
@@ -370,10 +373,12 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
       ++vocab[key];
     }
   }
+  cout << "Start copying map." << endl;
   vector<pair<vector<string>, int>> vector_vocab;
   for (auto elm : vocab) {
     vector_vocab.emplace_back(pair<vector<string>, int>(elm.first, elm.second));
   }
+  cout << "End copying map." << endl;
 
   map<vector<string>, int> stats;
   map<vector<string>, map<unsigned, int>> indices;
@@ -416,7 +421,11 @@ BPEVocabulary::BPEVocabulary(const string & corpus_filename, unsigned size) {
     if (i % 100 == 0) {
       pruneStats(&stats, &big_stats, threshold);
     }
+    if (i % 1000 == 0) {
+      cout << "Making BPE: " << i << endl;
+    }
   }
+  cout << "End making BPE codes." << endl;
   // end making BPE codes
 }
 
