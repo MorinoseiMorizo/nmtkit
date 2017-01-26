@@ -7,6 +7,8 @@
 #include <boost/algorithm/string.hpp>
 #include <nmtkit/exception.h>
 
+using std::cout;
+using std::endl;
 using std::ifstream;
 using std::istream;
 using std::string;
@@ -124,12 +126,17 @@ void Corpus::loadParallelSentences(
 
   result->clear();
   vector<unsigned> src_ids, trg_ids;
+  unsigned i = 0;
   while (
       readTokens(src_vocab, &src_ifs, &src_ids) and
       readTokens(trg_vocab, &trg_ifs, &trg_ids)) {
+    if (i % 10000 == 0) {
+      cout << "Reading line: " << i++ << endl;
+    }
     if (::checkSample(src_ids, trg_ids, max_length, max_length_ratio)) {
       result->emplace_back(Sample {std::move(src_ids), std::move(trg_ids)});
     }
+    i++;
   }
 }
 

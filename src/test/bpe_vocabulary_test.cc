@@ -121,6 +121,37 @@ BOOST_AUTO_TEST_CASE(CheckConvertingToIDs) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(CheckConvertingToTokens) {
+  nmtkit::BPEVocabulary vocab;
+  ::loadArchive("data/small.en.bpe.vocab", &vocab);
+  const vector<string> sentences {
+    "anything that can go wrong , will go wrong .",
+    "there is always light behind the clouds .",
+    "and yet it moves .",
+    "これ は 日本 語 の テスト 文 で す 。",
+  };
+  const vector<vector<string>> expected {
+    {"an", "y", "th", "ing</w>", "th", "at</w>", "ca", "n</w>", "g",
+     "o</w>", "w", "r", "on", "g</w>", ",", "</w>", "wi", "ll</w>",
+     "g", "o</w>", "w", "r", "on", "g</w>", ".</w>"}, 
+    {"th", "er", "e</w>", "is</w>", "a", "l", "wa", "y", "s</w>", 
+     "li", "g", "h", "t</w>", "b", "e", "h", "in", "d</w>", "the</w>",
+     "c", "l", "ou", "d", "s</w>", ".</w>"}, 
+    {"an", "d</w>", "y", "et</w>", "it</w>", "m", "o", "v", "e", 
+     "s</w>", ".</w>"}, 
+    {"<unk>", "<unk>", "</w>", "<unk>", "</w>", "<unk>", "<unk>", "</w>",
+     "<unk>", "</w>", "<unk>", "</w>", "<unk>", "<unk>", "<unk>", "</w>",
+     "<unk>", "</w>", "<unk>", "</w>", "<unk>", "</w>", "<unk>", "</w>"}, 
+  };
+
+  for (unsigned i = 0; i < sentences.size(); ++i) {
+    vector<string> observed = vocab.convertToTokens(sentences[i]);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        expected[i].begin(), expected[i].end(),
+        observed.begin(), observed.end());
+  }
+}
+
 BOOST_AUTO_TEST_CASE(CheckConvertingToSentence) {
   nmtkit::BPEVocabulary vocab;
   ::loadArchive("data/small.en.bpe.vocab", &vocab);
@@ -142,6 +173,34 @@ BOOST_AUTO_TEST_CASE(CheckConvertingToSentence) {
   for (unsigned i = 0; i < word_ids.size(); ++i) {
     string observed = vocab.convertToSentence(word_ids[i]);
     BOOST_CHECK_EQUAL(expected[i], observed);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(CheckConvertingToTokenizedSentence) {
+  nmtkit::BPEVocabulary vocab;
+  ::loadArchive("data/small.en.bpe.vocab", &vocab);
+  const vector<vector<unsigned>> word_ids {
+    {77, 17, 40, 68, 40, 79, 85, 41, 21, 42, 18, 12, 66, 56,
+     29, 3, 91, 73, 21, 42, 18, 12, 66, 56, 37},
+    {40, 62, 36, 47, 7, 13, 67, 17, 39, 95, 21, 9, 38, 24, 4,
+     9, 49, 43, 50, 20, 13, 44, 15, 39, 37},
+    {77, 43, 17, 97, 82, 19, 6, 26, 4, 39, 37},
+    {0, 0, 3, 0, 3, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 3, 0, 3, 0},
+  };
+  const vector<vector<string>> expected {
+    {"anything", "that", "can", "go", "wrong", ",", "will", "go",
+     "wrong", "."},
+    {"there", "is", "always", "light", "behind", "the", "clouds", "."},
+    {"and", "yet", "it", "moves", "."},
+    {"<unk><unk>", "<unk>", "<unk><unk>", "<unk>", "<unk>",
+     "<unk><unk><unk>", "<unk>", "<unk>"}
+  };
+
+  for (unsigned i = 0; i < word_ids.size(); ++i) {
+    vector<string> observed = vocab.convertToTokenizedSentence(word_ids[i]);
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        expected[i].begin(), expected[i].end(),
+        observed.begin(), observed.end());
   }
 }
 

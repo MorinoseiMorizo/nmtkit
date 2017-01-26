@@ -21,6 +21,7 @@
 #include <dynet/tensor.h>
 #include <dynet/training.h>
 #include <mteval/EvaluatorFactory.h>
+#include <mteval/Dictionary.h>
 #include <nmtkit/batch_converter.h>
 #include <nmtkit/bpe_vocabulary.h>
 #include <nmtkit/character_vocabulary.h>
@@ -32,6 +33,7 @@
 #include <nmtkit/monotone_sampler.h>
 #include <nmtkit/sorted_random_sampler.h>
 #include <nmtkit/vocabulary.h>
+#include <nmtkit/test_sampler.h>
 #include <nmtkit/word_vocabulary.h>
 #include <spdlog/spdlog.h>
 
@@ -279,7 +281,7 @@ void saveArchive(
 //   The log perplexity score.
 float evaluateLogPerplexity(
     nmtkit::EncoderDecoder & encdec,
-    nmtkit::MonotoneSampler & sampler,
+    nmtkit::TestSampler & sampler,
     nmtkit::BatchConverter & converter) {
   unsigned num_outputs = 0;
   float total_loss = 0.0f;
@@ -311,15 +313,16 @@ float evaluateLogPerplexity(
 float evaluateBLEU(
     const nmtkit::Vocabulary & trg_vocab,
     nmtkit::EncoderDecoder & encdec,
-    nmtkit::MonotoneSampler & sampler,
+    nmtkit::TestSampler & sampler,
     const unsigned max_length) {
   const auto evaluator = MTEval::EvaluatorFactory::create("BLEU");
   const unsigned bos_id = trg_vocab.getID("<s>");
   const unsigned eos_id = trg_vocab.getID("</s>");
+  MTEval::Dictionary dict;
   MTEval::Statistics stats;
   sampler.rewind();
   while (sampler.hasSamples()) {
-    vector<nmtkit::Sample> samples = sampler.getSamples();
+    vector<nmtkit::TestSample> samples = sampler.getTestSamples();
     nmtkit::InferenceGraph ig = encdec.infer(
         samples[0].source, bos_id, eos_id, max_length, 1, 0.0f);
     const auto hyp_nodes = ig.findOneBestPath(bos_id, eos_id);
@@ -328,7 +331,10 @@ float evaluateBLEU(
     for (unsigned i = 1; i < hyp_nodes.size() - 1; ++i) {
       hyp_ids.emplace_back(hyp_nodes[i]->label().word_id);
     }
-    MTEval::Sample eval_sample {hyp_ids, {samples[0].target}};
+    const string string_hyp = trg_vocab.convertToSentence(hyp_ids);
+    const MTEval::Sentence sent_hyp = dict.getSentence(string_hyp);
+    const MTEval::Sentence sent_ref = dict.getSentence(samples[0].target_string);
+    MTEval::Sample eval_sample {sent_hyp, {sent_ref}};
     stats += evaluator->map(eval_sample);
   }
   return evaluator->integrate(stats);
@@ -420,10 +426,8 @@ int main(int argc, char * argv[]) {
 
     // Maximum lengths
     const unsigned train_max_length = config.get<unsigned>("Batch.max_length");
-    const unsigned test_max_length = 1024;
     const float train_max_length_ratio = config.get<float>(
         "Batch.max_length_ratio");
-    const float test_max_length_ratio = 1e10;
 
     // Creates samplers and batch converter.
     nmtkit::SortedRandomSampler train_sampler(
@@ -437,15 +441,15 @@ int main(int argc, char * argv[]) {
         config.get<unsigned>("Global.random_seed"));
     const unsigned corpus_size = train_sampler.getNumSamples();
     logger->info("Loaded 'train' corpus.");
-    nmtkit::MonotoneSampler dev_sampler(
+    nmtkit::TestSampler dev_sampler(
         config.get<string>("Corpus.dev_source"),
         config.get<string>("Corpus.dev_target"),
-        *src_vocab, *trg_vocab, test_max_length, test_max_length_ratio, 1);
+        *src_vocab, *trg_vocab, 1);
     logger->info("Loaded 'dev' corpus.");
-    nmtkit::MonotoneSampler test_sampler(
+    nmtkit::TestSampler test_sampler(
         config.get<string>("Corpus.test_source"),
         config.get<string>("Corpus.test_target"),
-        *src_vocab, *trg_vocab, test_max_length, test_max_length_ratio, 1);
+        *src_vocab, *trg_vocab, 1);
     logger->info("Loaded 'test' corpus.");
     const auto fmt_corpus_size = boost::format(
         "Cleaned corpus size: train=%d dev=%d test=%d")
@@ -488,6 +492,10 @@ int main(int argc, char * argv[]) {
 
     const float dropout_ratio = config.get<float>("Train.dropout_ratio");
     const unsigned max_iteration = config.get<unsigned>("Train.max_iteration");
+
+    const unsigned max_waiting_hour = config.get<unsigned>("Train.max_waiting_hour");
+    auto scheduled_training_finish_time = std::chrono::system_clock::to_time_t(
+        std::chrono::system_clock::now() + std::chrono::hours(max_waiting_hour));
 
     const string eval_type = config.get<string>("Train.evaluation_type");
     const unsigned eval_interval = config.get<unsigned>(
@@ -571,29 +579,29 @@ int main(int argc, char * argv[]) {
         const float dev_log_ppl = ::evaluateLogPerplexity(
             encdec, dev_sampler, batch_converter);
         const auto fmt_dev_log_ppl = boost::format(
-            "Evaluated: batch=%d words=%d elapsed-time(sec)=%d dev-log-ppl=%.6e")
-            % iteration % num_trained_words % elapsed_time_seconds % dev_log_ppl;
+            "Evaluated: batch=%d samples=%d words=%d elapsed-time(sec)=%d dev-log-ppl=%.6e")
+            % iteration % num_trained_samples % num_trained_words % elapsed_time_seconds % dev_log_ppl;
         logger->info(fmt_dev_log_ppl.str());
 
         const float dev_bleu = ::evaluateBLEU(
             *trg_vocab, encdec, dev_sampler, train_max_length);
         const auto fmt_dev_bleu = boost::format(
-            "Evaluated: batch=%d words=%d elapsed-time(sec)=%d dev-bleu=%.6f")
-            % iteration % num_trained_words % elapsed_time_seconds % dev_bleu;
+            "Evaluated: batch=%d samples=%d words=%d elapsed-time(sec)=%d dev-bleu=%.6f")
+            % iteration % num_trained_samples % num_trained_words % elapsed_time_seconds % dev_bleu;
         logger->info(fmt_dev_bleu.str());
 
         const float test_log_ppl = ::evaluateLogPerplexity(
             encdec, test_sampler, batch_converter);
         const auto fmt_test_log_ppl = boost::format(
-            "Evaluated: batch=%d words=%d elapsed-time(sec)=%d test-log-ppl=%.6e")
-            % iteration % num_trained_words % elapsed_time_seconds % test_log_ppl;
+            "Evaluated: batch=%d samples=%d words=%d elapsed-time(sec)=%d test-log-ppl=%.6e")
+            % iteration % num_trained_samples % num_trained_words % elapsed_time_seconds % test_log_ppl;
         logger->info(fmt_test_log_ppl.str());
 
         const float test_bleu = ::evaluateBLEU(
             *trg_vocab, encdec, test_sampler, train_max_length);
         const auto fmt_test_bleu = boost::format(
-            "Evaluated: batch=%d words=%d elapsed-time(sec)=%d test-bleu=%.6f")
-            % iteration % num_trained_words % elapsed_time_seconds % test_bleu;
+            "Evaluated: batch=%d samples=%d words=%d elapsed-time(sec)=%d test-bleu=%.6f")
+            % iteration % num_trained_samples % num_trained_words % elapsed_time_seconds % test_bleu;
         logger->info(fmt_test_bleu.str());
 
         if (lr_decay_type == "eval") {
@@ -615,6 +623,8 @@ int main(int argc, char * argv[]) {
           FS::copy_file(model_dir / "latest.trainer.params", trainer_path);
           FS::copy_file(model_dir / "latest.model.params", model_path);
           logger->info("Saved 'best_dev_log_ppl' model.");
+          scheduled_training_finish_time = std::chrono::system_clock::to_time_t(
+              std::chrono::system_clock::now() + std::chrono::hours(max_waiting_hour));
         } else {
           if (lr_decay_type == "logppl") {
             lr_decay *= lr_decay_ratio;
@@ -646,6 +656,12 @@ int main(int argc, char * argv[]) {
         next_eval_time =
             std::chrono::system_clock::to_time_t(
             current_time + std::chrono::minutes(eval_interval));
+      }
+
+      // Training finish check
+      if (max_waiting_hour != 0 and
+        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) >= scheduled_training_finish_time) {
+          break;
       }
     }
 
