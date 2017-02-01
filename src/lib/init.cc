@@ -10,6 +10,7 @@
 
 using std::cerr;
 using std::endl;
+using std::vector;
 
 namespace {
 
@@ -84,6 +85,13 @@ void initialize(const GlobalConfig & config) {
   // Note: If the machine had 1025 or more GPUs then this process fails.
   const unsigned MAX_GPUS = 1024;
   params.gpu_mask = vector<int>(MAX_GPUS, 0);
+
+  if (config.gpu_id != -1) {
+    cerr << "Going to take " << config.gpu_id << endl;
+    params.ids_requested = true;
+    params.gpu_mask[config.gpu_id]++;
+    params.requested_gpus++;
+  }
 #endif  // HAVE_CUDA
 
   dynet::initialize(params);

@@ -81,6 +81,9 @@ PO::variables_map parseArgs(int argc, char * argv[]) {
      PO::value<string>(),
      "(required) Location of the model directory.")
     ("force", "Force to run the command regardless the amount of the memory.")
+    ("gpu", 
+     PO::value<int>()->default_value(-1),
+     "Specify the GPUs that you want to use by device ID.")
     ;
 
   PO::options_description opt;
@@ -395,6 +398,7 @@ int main(int argc, char * argv[]) {
     global_config.parameter_memory_mb = config.get<unsigned>(
         "Global.parameter_memory_mb");
     global_config.force_run = !!args.count("force");
+    global_config.gpu_id = args["gpu"].as<int>();
     nmtkit::initialize(global_config);
 
     // Creates vocabularies.
