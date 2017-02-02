@@ -25,6 +25,8 @@ struct GlobalConfig {
 
   // Force to run the command regardless the amount of the requested memory.
   bool force_run;
+
+  int gpu_id;
 };
 
 // Initializes NMTKit.
